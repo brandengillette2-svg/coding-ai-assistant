@@ -1,0 +1,24 @@
+# monitoring/prometheus.yml
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "api"
+    static_configs:
+      - targets: ["api:8000"]
+  - job_name: "worker"
+    static_configs:
+      - targets: ["worker:8000"]
+  - job_name: "planner"
+    static_configs:
+      - targets: ["planner:8000"]
+  - job_name: "coder"
+    static_configs:
+      - targets: ["coder:8000"]
+  - job_name: "reviewer"
+    static_configs:
+      - targets: ["reviewer:8000"]
+  - job_name: "verifier"
+    static_configs:
+      - targets: ["verifier:8000"]

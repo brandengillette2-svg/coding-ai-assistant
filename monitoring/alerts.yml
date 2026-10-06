@@ -1,0 +1,10 @@
+groups:
+  - name: coding-agent
+    rules:
+      - alert: HighTaskFailureRate
+        expr: rate(task_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High failure rate for coding tasks

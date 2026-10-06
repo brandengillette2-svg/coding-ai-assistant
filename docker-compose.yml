@@ -79,6 +79,99 @@ services:
     command: python -m app.worker
     restart: unless-stopped
 
+  planner:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: wizard-planner
+    environment:
+      SERVICE_ROLE: planner
+      DATABASE_URL: postgresql://wizard:wizard_password@postgres:5432/wizard_db
+      REDIS_URL: redis://redis:6379/0
+      MODEL_PROVIDER: openai
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+      REPO_ROOT: /app/repos
+    depends_on:
+      - postgres
+      - redis
+    command: python -m services.planner_service
+    restart: unless-stopped
+
+  coder:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: wizard-coder
+    environment:
+      SERVICE_ROLE: coder
+      DATABASE_URL: postgresql://wizard:wizard_password@postgres:5432/wizard_db
+      REDIS_URL: redis://redis:6379/0
+      MODEL_PROVIDER: openai
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+      REPO_ROOT: /app/repos
+    depends_on:
+      - postgres
+      - redis
+    command: python -m services.coder_service
+    restart: unless-stopped
+
+  reviewer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: wizard-reviewer
+    environment:
+      SERVICE_ROLE: reviewer
+      DATABASE_URL: postgresql://wizard:wizard_password@postgres:5432/wizard_db
+      REDIS_URL: redis://redis:6379/0
+      MODEL_PROVIDER: openai
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+      REPO_ROOT: /app/repos
+    depends_on:
+      - postgres
+      - redis
+    command: python -m services.reviewer_service
+    restart: unless-stopped
+
+  verifier:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: wizard-verifier
+    environment:
+      SERVICE_ROLE: verifier
+      DATABASE_URL: postgresql://wizard:wizard_password@postgres:5432/wizard_db
+      REDIS_URL: redis://redis:6379/0
+      REPO_ROOT: /app/repos
+    depends_on:
+      - postgres
+      - redis
+    command: python -m services.verifier_service
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: wizard-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: wizard-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
 
