@@ -1,94 +1,165 @@
-# Master Code Wizard
+# Master Code Wizard - Production Architecture
 
-A serious coding agent scaffold for real repository work.
-
-This project is designed around the core capabilities that matter most in production:
-- repository-aware code discovery
-- task planning and decomposition
-- safe command execution with a sandbox policy
-- verification-first validation
-- correction memory and journaling
-- reviewer pass before patch acceptance
-- real model integration when an API key is configured
+A serious, scalable coding agent built for real-world deployment.
 
 ## Architecture overview
 
-The project follows a disciplined execution loop:
-1. map the repository
-2. gather relevant code and memory
-3. plan the task
-4. patch only the relevant files
-5. execute verification commands
-6. review patch quality
-7. store useful corrections
-8. retry if validation fails
+The system is organized as a distributed service with these components:
 
-## Included modules
+- **API Gateway** (FastAPI): Task ingestion, status queries, result retrieval
+- **Orchestrator**: Task state machine, step coordination
+- **Repo Scanner**: AST-based code indexing and semantic embedding
+- **Planner Service**: LLM-driven task decomposition
+- **Coder Service**: Patch generation and file editing
+- **Verifier Service**: Test execution and validation
+- **Reviewer Service**: Patch critique and acceptance scoring
+- **Memory Store**: Postgres + vector DB for semantic retrieval
+- **Task Queue**: Redis for job distribution
+- **Worker Pool**: Processes tasks asynchronously
+- **Journal**: Execution traces and audit log
 
-- `app/config.py` — environment settings
-- `app/models.py` — DTOs and result types
-- `app/model_client.py` — LLM integration for OpenAI and Anthropic
-- `app/repo_mapper.py` — repo scan, symbol lookup, and relevance ranking
-- `app/context_library.py` — persistent memory store
-- `app/journal.py` — execution journaling
-- `app/task_planner.py` — phase-based task decomposition
-- `app/sandbox.py` — execution policy and restriction checks
-- `app/tool_runner.py` — safe shell execution wrapper
-- `app/verifier.py` — validation logic
-- `app/editor.py` — file editing helpers
-- `app/reviewer.py` — patch review pass
-- `app/assistant.py` — orchestration loop
-- `app/main.py` — FastAPI API
-- `app/cli.py` — CLI entrypoint
-- `tests/` — smoke tests for key modules
-
-## Setup
+## Quick start with Docker
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-```
+# Build and start all services
+docker-compose up --build
 
-Set a real key if you want actual model calls:
-
-```bash
-MODEL_PROVIDER=openai
-MODEL_NAME=gpt-4o-mini
-MODEL_API_KEY=your_key_here
-```
-
-If no API key is configured, the assistant falls back to local planning mode.
-
-## Run the API
-
-```bash
-uvicorn app.main:app --reload
-```
-
-## Run the CLI
-
-```bash
-python -m app.cli "fix the auth token refresh bug"
-```
-
-## Example request
-
-```bash
-curl -X POST http://localhost:8000/task \
+# Run a task
+curl -X POST http://localhost:8000/tasks \
   -H "Content-Type: application/json" \
-  -d '{"description":"Fix the token refresh bug in auth flow","repo_root":"."}'
+  -d '{
+    "description": "Fix the auth token refresh bug",
+    "repo_url": "https://github.com/your-org/your-repo",
+    "branch": "main"
+  }'
+
+# Check task status
+curl http://localhost:8000/tasks/{task_id}
+
+# View logs
+docker-compose logs -f worker
 ```
 
-## Production upgrades to add next
+## Services
 
-- vector-indexed semantic retrieval
-- dependency graph and symbol graph
-- Postgres persistence for tasks and memory
-- worker queue for long-running operations
-- stronger sandboxing / isolated execution service
-- diff-aware validation and acceptance scoring
-- reviewer and planner as separate agents
+### API (port 8000)
 
-This is the correct architecture direction for a serious coding agent: a control loop around repo context, safe execution, verification, and memory.
+REST API for task management and status queries.
+
+Endpoints:
+- `POST /tasks` - create a new task
+- `GET /tasks/{id}` - get task status and results
+- `GET /tasks` - list recent tasks
+- `POST /tasks/{id}/cancel` - cancel a task
+- `GET /health` - health check
+
+### Worker (processes Redis tasks)
+
+Asynchronous task processor. Runs multiple workers for parallelism.
+
+Responsibilities:
+- fetch tasks from queue
+- execute planner, coder, verifier, reviewer
+- update task status and results
+- store execution traces
+
+### Postgres (port 5432)
+
+Persistent storage for:
+- task metadata
+- execution history
+- correction memory
+- journal entries
+- code index metadata
+
+### Redis (port 6379)
+
+Task queue and cache layer for:
+- task scheduling
+- worker coordination
+- result caching
+
+## Project structure
+
+```
+.
+├── docker-compose.yml              # Service orchestration
+├── Dockerfile                      # Worker and API image
+├── .dockerignore
+├── requirements.txt
+├── .env.example
+├── app/
+│   ├── __init__.py
+│   ├── config.py                   # Settings and env vars
+│   ├── models.py                   # DTOs and enums
+│   ├── model_client.py             # LLM integration
+│   ├── repo_mapper.py              # Repo scanning and indexing
+│   ├── context_library.py          # Memory retrieval
+│   ├── journal.py                  # Execution logging
+│   ├── task_planner.py             # Task decomposition
+│   ├── sandbox.py                  # Execution policy
+│   ├── tool_runner.py              # Safe command execution
+│   ├── verifier.py                 # Validation logic
+│   ├── editor.py                   # File editing
+│   ├── reviewer.py                 # Patch review
+│   ├── assistant.py                # Orchestration loop
+│   ├── db.py                       # Postgres models and session
+│   ├── storage.py                  # Data layer
+│   ├── queue.py                    # Redis task queue
+│   ├── main.py                     # FastAPI app
+│   ├── cli.py                      # CLI entrypoint
+│   ├── worker.py                   # Task worker
+│   └── semantic_index.py           # Vector store integration
+├── services/
+│   ├── __init__.py
+│   ├── planner_service.py          # Planner microservice
+│   ├── coder_service.py            # Coder microservice
+│   ├── verifier_service.py         # Verifier microservice
+│   ├── reviewer_service.py         # Reviewer microservice
+│   └── repo_service.py             # Repo indexing service
+├── migrations/
+│   ├── __init__.py
+│   └── versions/
+│       ├── 001_initial_schema.py
+│       └── 002_add_embeddings.py
+├── tests/
+│   ├── test_repo_mapper.py
+│   ├── test_verifier.py
+│   ├── test_planner.py
+│   ├── test_context_library.py
+│   └── conftest.py                 # Test fixtures
+├── docker/
+│   ├── Dockerfile.worker
+│   ├── Dockerfile.api
+│   └── entrypoint.sh
+└── README.md
+```
+
+## Environment configuration
+
+See `.env.example` for all options.
+
+Key variables:
+- `POSTGRES_URL`: Postgres connection string
+- `REDIS_URL`: Redis connection string
+- `MODEL_API_KEY`: LLM provider key
+- `MODEL_PROVIDER`: openai or anthropic
+- `REPO_ROOT`: Default repo to scan
+
+## Deployment
+
+For production, configure:
+- Postgres with SSL
+- Redis with authentication
+- Load balancer for API
+- Monitoring and alerting
+- Log aggregation
+
+## Next steps
+
+- Add semantic search over repo code
+- Implement patch diff validation
+- Build web dashboard
+- Add GitHub/GitLab integration
+- Set up monitoring with Prometheus
+
